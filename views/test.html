@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>MediaSocket</title>
+    <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <style type="text/css">
+    body {
+        background-color:#eee;
+    }
+    .container {
+        width:720px;
+        margin:auto;
+    }
+    header {
+        padding:10px 0;
+    }
+    #serverStatus {
+        padding:5px;
+        color:#111;
+    }
+    .serverStatus[data-serverstatus="connected"] {
+        color:green;
+    }
+    .serverStatus[data-serverstatus="connecting"] {
+        color:orange;
+    }
+    .serverStatus[data-serverstatus="disconnect"] {
+        color:red;
+    }
+    #camsContainer {
+        width:700px;
+        margin:auto;
+        background-color: #111;
+        padding:0 10px;
+    }
+    .playerContainer {
+        width:50%;
+        float:left;
+        text-align:center;
+    }
+    #playerOneVideo {
+        width:300px;
+        height:300px;
+        margin:auto;
+    }
+    #playerTwoImage {
+        max-width:300px;
+        max-height:300px;
+        margin:auto;
+    }
+    .clear {
+        clear:both;
+    }
+    </style>
+</head>
+<body>
+    <div class=container>
+        <header>
+            <span id="serverStatus">Socket.IO Status: <span class=serverStatus></span></span>
+        </header>
+        <div id="camsContainer">
+            <div class=playerContainer id="playerOneContainer">
+                <video id="playerOneVideo" autoplay></video>
+                <canvas id="playerOneCanvas" style="width:300px;height:300px;display:none;"></canvas>
+            </div>
+            <div class=playerContainer id="playerTwoContainer">
+                <img id="playerTwoImage"/>
+            </div>
+            <div class=clear></div>
+        </div>
+    </div>
+    <script>
+    //Socket.io Connect and Status
+
+    var socket = io.connect();
+    socket.on('connect', function () {
+        $('.serverStatus').attr('data-serverStatus', 'connected').html('Connected')
+    });
+    socket.on('connecting', function () {
+        $('.serverStatus').attr('data-serverStatus', 'connecting').html('Connecting')
+    });
+    socket.on('disconnect', function () {
+        $('.serverStatus').attr('data-serverStatus', 'disconnect').html('Disconnected')
+    });
+
+    socket.on('broadcast', function(receivedImage) {
+        img = document.getElementById('playerTwoImage');
+        img.src = receivedImage;
+
+        //Center PlayerTwoImage
+        var camsContainer = document.getElementById('camsContainer');
+        img.style['margin-top'] = (($(camsContainer).height() - img.height)/2)+'px';
+
+    })
+
+
+    var onFailSoHard = function(e) {
+        alert('You\'ve Declined? :\'(')
+        //console.log(e);
+    };
+
+
+
+    window.URL = window.URL || window.webkitURL;
+    navigator.getUserMedia  = navigator.getUserMedia || navigator.webkitGetUserMedia ||
+    navigator.mozGetUserMedia || navigator.msGetUserMedia;
+
+    var video = document.querySelector('video');
+
+    if (navigator.getUserMedia) {
+        navigator.getUserMedia({video: true}, function(stream) {
+            console.log(stream);
+            video.src = window.URL.createObjectURL(stream);
+
+
+        }, onFailSoHard);
+    } else {
+        alert('Unable to \'navigator.getUserMedia()\'. This most likely means your browser doesn\'t have support for it or it\'.');
+    }
+
+    video.addEventListener('play', function(e) {
+        var canvas = document.getElementById('playerOneCanvas');
+
+        var goByScale = (video.videoHeight >= video.videoWidth) ? 'Height':'Width';
+        var scale = (300/ video['video'+goByScale]);
+
+        canvas.width = video.videoWidth * scale;
+        canvas.style.width = canvas.width + 'px';
+        canvas.height = video.videoHeight * scale;
+        canvas.style.height = canvas.height + 'px';
+
+        var ctx = canvas.getContext('2d');
+        setInterval(function() {
+            if(video.paused !== true){
+                ctx.drawImage(video, 0, 0, video.videoWidth*scale, video.videoHeight*scale);
+                socket.emit('test','broadcast', canvas.toDataURL('image/png'));
+            }
+        }, 1000)
+    }, false);
+
+    </script>
+</body>
+</html>
